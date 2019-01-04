@@ -30,7 +30,7 @@ if(any(!(packages %in% installed.packages()))){
 suppressPackageStartupMessages(library(optparse))
 suppressPackageStartupMessages(library(entropy))
 suppressPackageStartupMessages(library(igraph))
-suppressPackageStartupMessages(library(lars))
+
 # 1.2 Define functions =======================================================#
 #' Estimate mutual information (MI) for all pairs of variables in an expression
 #' matrix
