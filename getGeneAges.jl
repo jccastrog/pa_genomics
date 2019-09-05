@@ -2,8 +2,8 @@
 #=
 @name: getGeneAges.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 15-Nov-2018
-@version: 1.0
+@update: 23-Jul-2019
+@version: 1.1
 @license: GNU General Public License v3.0.
 please type "./getGeneAges.jl -h" for usage help
 =#
@@ -12,7 +12,8 @@ please type "./getGeneAges.jl -h" for usage help
 # 1.1 Load packages ======================================================#
 using ArgParse;
 using Distributed;
-# 1.2 Define functions ===================================================#
+# 1.2 Initialize variables ===============================================#
+# 1.2.1 Create a parser #
 """
 	parse_commandline()
 Parse arguments in the command line and output help menu if required 
@@ -83,6 +84,19 @@ function parseCommandline()
 	end
 	return parse_args(s);
 end
+# 1.2.2 Parser variables #
+parsed_args = parseCommandline();
+pangenome_file = parsed_args["pangenome_file"];
+cds_dir = parsed_args["cds_dir"];
+ref_file = parsed_args["ref_file"];
+config_file = parsed_args["config_file"];
+num_threads = parse(Int, parsed_args["num_threads"]);
+output = parsed_args["output"];
+# 1.2.3 Global variables #
+addprocs(num_threads);
+num_threads_blast = 3;
+min_iden = float(40);
+# 1.3 Define functions ===================================================#
 """
 	makeBlastDB(fasta_file::String)
 Use "makeblastdb" to create nucleotide database files for a fasta file.
@@ -198,6 +212,7 @@ aminoacid format.
 			temporary database for each taxonomic rank.
 """
 function createStrataDBs(config_file::String, ref_file::String, cds_dir::String)
+#This could be optimized with pmap
 	database_paths = Dict();
 	config_dict = parseConfigFile(config_file);
 	domain_name = config_dict["domain"];
@@ -259,40 +274,45 @@ function createStrataDBs(config_file::String, ref_file::String, cds_dir::String)
 	end
 	return database_paths;
 end
-"""
-	executeBlastTbl(query_file::String, db_file::String, num_thread::Int)
-Use "blastn" to create map a query to a database and output a table in blast format 6.
-
-#Inputs
-	query_file::String => A file path of the query.
-	db_file::String => A file path for the database.
-	num_thread::Int => The number of threads to use (default: 3).
-#Return
-	out_file::String => Path to the output table for future reference
-#Examples
-
-```julia
-executeBlastTbl("query_file.fa", "db_file", 4);
-Running blast on 4 threads... Done.
-
-query_file-db_file.tbl
-```
-"""
-function executeBlastTbl(query_file::String, db_file::String, num_thread::Int=3)
-	extension(url::String) = try match(r"\.[A-Za-z0-9]+$", url).match 
-	catch 
-		"" 
-	end ;
-	query_ext = extension(query_file);
-	basename_query = basename(query_file);
-	basename_db = basename(db_file);
-	out_file = replace(basename_query, query_ext => "");
-	out_file = "$basename_db-$out_file.tbl";
-	blast_cmd = `blastp -db $db_file -query $query_file -num_threads $num_thread -out $out_file -outfmt 6`;
-	write(stdout, "Running BLAST on $num_thread threads... ");
-	run(blast_cmd);
-	write(stdout, "Done.\n");
-	return out_file;
+@everywhere begin
+	"""
+		executeBlastTbl(query_file::String, db_file::String, num_thread::Int)
+	Use "blastn" to create map a query to a database and output a table in blast format 6.
+	
+	#Inputs
+		query_file::String => A file path of the query.
+		db_file::String => A file path for the database.
+		num_thread::Int => The number of threads to use (default: 3).
+	#Return
+		out_file::String => Path to the output table for future reference
+	Examples
+	
+	``julia
+	executeBlastTbl("query_file.fa", "db_file", 4);
+	Running blast for db_file on 4 threads... Done.
+	
+	db_file.tbl
+	```
+	"""
+	function executeBlastTbl(blast_args::Dict)
+		query_file = blast_args["query"];
+		db_file = blast_args["db"];
+		num_thread = try blast_args["num_thread"]
+		catch
+			3
+		end
+		extension(url::String) = try match(r"\.[A-Za-z0-9]+$", url).match 
+		catch
+			""
+		end;
+		basename_db = basename(db_file);
+		out_file = "$basename_db.tbl";
+		blast_cmd = `blastp -db $db_file -query $query_file -num_threads $num_thread -out $out_file -outfmt 6 -num_alignments 1`;
+		write(stdout, "Running BLAST for $basename_db on $num_thread threads... ");
+		run(blast_cmd);
+		write(stdout, "Done.\n");
+		return out_file;
+	end
 end
 """
 	parallelBlastTbl(query_file::String, db_dict::Dict, num_thread_blast::Int, num_threads::Int)
@@ -309,14 +329,19 @@ separately and has its own multi thread settings.
 	tbl_paths: A dictionary with the paths for each of the output tables resulting of the blast,
 		   where the key is a taxonomic rank and the value is the file path.
 """
-function parallelBlastTbl(query_file::String, db_dict::Dict, num_thread_blast::Int=1)
-	tbl_paths = Dict();
-	#@distributed 
-	for tax_rank in collect(keys(db_dict))
-		db_path = db_dict[tax_rank];
-		tbl_paths[tax_rank] = executeBlastTbl(query_file, db_path, num_thread_blast);
+function parallelBlastTbl(query_file::String, db_dict::Dict, num_thread_blast::Int=3)
+	input_args = [];
+	tax_ranks = collect(keys(db_dict));
+	for tr in tax_ranks
+		db_file = db_dict[tr];
+		blast_args = Dict("query" => query_file, "db" => db_file, "num_thread" => num_thread_blast);
+		push!(input_args, blast_args);
 	end
-	return tbl_paths;
+	num_workers = nprocs() - 1;
+	write(stdout, "Running parallel BLAST in $num_workers workers\n");
+	tbl_paths = pmap(executeBlastTbl, input_args);
+	write(stdout, "BLAST finished for all ranks!\n");
+	return(tbl_paths);
 end
 """
 	filterBlastTables(tbl_paths::Dict, min_aln::Int, output::String)
@@ -330,57 +355,64 @@ the basal strata first moving towards the more derived taxonomic rank.
 			is calculated based on the length of the query sequence.
 	min_iden_length: Minimum percentage of alignment identity to be considered an ortholog.
 """
-function filterBlastTables(tbl_paths::Dict, min_iden::Float64, output::String)
+function filterBlastTables(tbl_paths::Array, min_iden::Float64, output::String)
+	num_tables = length(tbl_paths);
+	write(stdout, "Parsing $num_tables to assign taxonomic ranks...");
 	assigned_seqs = Dict();
-	parse_tbl_file(tbl_paths::Dict, assigned_seqs::Dict, tax_rank) = open(tbl_paths[tax_rank]) do df
-		#@distributed 
+	parse_tbl_file(tbl_path, assigned_seqs::Dict, tax_rank) = open(tbl_path) do df
 		for line in eachline(df)
 			fields = split(line, "\t");
 			query_id = fields[1];
-			subject_id = fields[2];
+			subject_id = fields[2]
 			pident = parse(Float64,fields[3]);
 			if pident >= min_iden
-				if haskey(assigned_seqs, query_id)
+				if haskey(assigned_seqs[query_id])
 					continue
 				else
 					assigned_seqs[query_id] = tax_rank;
 				end
 			end
 		end
-
 	end
 	try
-		parse_tbl_file(tbl_paths, assigned_seqs, "domain");
+		tbl_path = tbl_paths[Bool[contains("domain",i) for i in tbl_paths]]
+		parse_tbl_file(tbl_path, assigned_seqs, "domain");
 	catch
 		write(stderr, "Warning!, no sequences mapped to domain stratum!\n");
 	end
 	try
-		parse_tbl_file(tbl_paths, assigned_seqs, "phylum");
+		tbl_path = tbl_paths[Bool[contains("phylum",i) for i in tbl_paths]]
+		parse_tbl_file(tbl_path, assigned_seqs, "phylum");
 	catch
 		write(stderr, "Warning!, no sequences mapped to phylum stratum!\n");
 	end
 	try
-		parse_tbl_file(tbl_paths, assigned_seqs, "class");
+		tbl_path = tbl_paths[Bool[contains("class",i) for i in tbl_paths]]
+		parse_tbl_file(tbl_path, assigned_seqs, "class");
 	catch
 		write(stderr, "Warning!, no sequences mapped to class stratum!\n");
 	end
 	try
-		parse_tbl_file(tbl_paths, assigned_seqs, "order");
+		tbl_path = tbl_paths[Bool[contains("order",i) for i in tbl_paths]]
+		parse_tbl_file(tbl_path, assigned_seqs, "order");
 	catch
 		write(stderr, "Warning!, no sequences mapped to order stratum!\n");
 	end
 	try
-		parse_tbl_file(tbl_paths, assigned_seqs, "family");
+		tbl_path = tbl_paths[Bool[contains("family",i) for i in tbl_paths]]
+		parse_tbl_file(tbl_path, assigned_seqs, "family");
 	catch
 		write(stderr, "Warning!, no sequences mapped to family stratum!\n");
 	end
 	try
-		parse_tbl_file(tbl_paths, assigned_seqs, "genus");
+		tbl_path = tbl_paths[Bool[contains("genus",i) for i in tbl_paths]]
+		parse_tbl_file(tbl_path, assigned_seqs, "genus");
 	catch
 		write(stderr, "Warning!, no sequences mapped to genus stratum!\n");
 	end
 	try
-		parse_tbl_file(tbl_paths, assigned_seqs, "species");
+		tbl_path = tbl_paths[Bool[contains("species",i) for i in tbl_paths]]
+		parse_tbl_file(tbl_path, assigned_seqs, "species");
 	catch
 		write(stderr, "Warning!, no sequences mapped to species stratum!\n");
 	end
@@ -389,20 +421,8 @@ function filterBlastTables(tbl_paths::Dict, min_iden::Float64, output::String)
 		write(out_file, "$seq\t$stratum\n");
 	end
 	close(out_file);
+	write(stdout,"Done!\nTaxonomic rank assignments have been saved to $output\n");
 end
-# 1.3 Initialize variables ===============================================#
-# 1.3.1 Parser variables #
-parsed_args = parseCommandline();
-pangenome_file = parsed_args["pangenome_file"];
-cds_dir = parsed_args["cds_dir"];
-ref_file = parsed_args["ref_file"];
-config_file = parsed_args["config_file"];
-num_threads = parse(Int, parsed_args["num_threads"]);
-output = parsed_args["output"];
-# 1.3.2 Global variables
-addprocs(num_threads);
-num_threads_blast = 4;
-min_iden = float(40);
 ###========== 2.0  Create databases and perform the mappings ===========###
 # 2.1 Create databases ===================================================#
 database_paths = createStrataDBs(config_file, ref_file, cds_dir);
