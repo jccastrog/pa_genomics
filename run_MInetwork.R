@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
 
 ################################################################################
-# Name:     run_BGLR-RFE.R
+# Name:     run_MInetwork.R
 # Author:   Juan C. Castro [jcastro37@gatech.edu]
 #           Georgia Institute of Technology
 #           
 # Version:  1.0
-# Date:     07-Aug-2016
+# Date:     07-Aug-2019
 # License:  GNU General Public License v3.0.
 # ==============================================================================
 # 
@@ -31,50 +31,128 @@ if(any(!(packages %in% installed.packages()))){
 suppressPackageStartupMessages(library(entropy))
 suppressPackageStartupMessages(library(igraph))
 # 1.2 Define functions =======================================================#
-calculate_mi_graph <- function(initial.df){
-	data.dim <- dim(initial.df)
-	num.strains <- data.dim[1]
-	num.ogs <- data.dim[2]
-	og.names <- colnames(initial.df)
-	graph.df <- data.frame(og1 = c(), og2 = c(), mi = c()) 
-	for (i in 1:num.ogs){
-		for (j in 1:num.ogs){
-			if (i<j){
-				x <- initial.df[,i]
-				y <- initial.df[,j]
-				joint.df  <- as.data.frame(cbind(x,y))
-				lenX <- length(x)
-				lenY <- length(y)
-				sumX <- sum(x)
-				sumY <- sum(y)
-				pX <- c((lenX-sumX)/lenX, sumX/lenX)
-				pY <- c((lenY-sumY)/lenY, sumY/lenY)
-				joint.prob <- matrix(0,ncol = 2, nrow = 2)
-				joint.prob[1,1] <- sum((joint.df$x==0)&(joint.df$y==0))
-				joint.prob[1,2] <- sum((joint.df$x==1)&(joint.df$y==0))
-				joint.prob[2,1] <- sum((joint.df$x==0)&(joint.df$y==1))
-					joint.prob[2,2] <- sum((joint.df$x==1)&(joint.df$y==1))
-				joint.prob <- joint.prob/lenX
-				Hx <- entropy.plugin(pX)
-				Hy <- entropy.plugin(pY)
-				Hxy <- entropy.plugin(joint.prob)
-				miXY <- Hx + Hy - Hxy
-				temp.df <- data.frame(og1  = og.names[i], og2 = og.names[j], mi = miXY)
-				graph.df <- rbind(graph.df, temp.df)
-			}
-		}
-	}
-	return(graph.df)
+#' Estimate mutual information (MI) for all pairs of variables in an expression
+#' matrix
+#'
+#' @param matrixData A matrix with expression data where columns are genes and
+#'        rows are time points
+#' @param numGenes The number of genes in the matrix
+#' @return mutualMat A matrix with values of mutual information for all pair of
+#'        genes 
+#' @author Juan C. Castro \email{jcastro37@gatech.edu}
+mutualInfoEst <- function(matrixData,numGenes) {
+  mutualMat <- matrix(ncol=numGenes,nrow=numGenes)
+  for (i in 1:numGenes) {
+    for (j in 1:numGenes) {
+      discretVec <- cbind(matrixData[,i],matrixData[,j])
+      mutualMat[i,j] <- suppressWarnings(mi.empirical(discretVec,unit=c("log2")))
+    }
+  }
+  return(mutualMat)
 }
-
-
-args <- commandArgs(TRUE)
-input.file <- args[1]
-output.file <- args[2]
-initial.df <- read.table(input.file, header =  T, sep = '\t', stringsAsFactors = F, row.names = 1)
-start.time <- Sys.time()
-graph <- calculate_mi_graph(initial.df)
-end.time <- Sys.time()
-time.taken <- end.time - start.time
-cat(paste(time.taken,'\n',sep=''))
-write.table(x = graph, file = output.file, quote = F, sep ='\t', row.names = F)
+#' Estimate a null distribution of MI for variables in an expression matrix
+#'
+#' @param matrixData A matrix with expression data where columns are genes and
+#'        rows are time points
+#' @param numGenes The number of genes in the matrix
+#' @param randomizations Number of times to randomize expression values
+#' @return distMat A matrix with values of mutual information for a randomized
+#'        expression matrix where each column is a linearized version of a random
+#'        expression matrix
+#' @author Juan C. Castro \email{jcastro37@gatech.edu}
+nullInfoDist <- function(matrixData,numGenes,randomizations){
+  distMat <- matrix(ncol=(numGenes^2),nrow=randomizations)
+  for (counts in 1:randomizations) {
+    randomMatrixData <- matrix(ncol=ncol(matrixData),nrow=(nrow(matrixData)))
+    for (i in 1:ncol(matrixData)){
+      randomMatrixData[,i] <- sample(matrixData[,i])
+    }
+    randomMIMat <- mutualInfoEst(randomMatrixData,numGenes)
+    randomMIVec <- matrix(randomMIMat,ncol=(numGenes^2))
+    distMat[counts,] <- randomMIVec
+  }
+  return(distMat)
+}
+#' Calculate a score for each value of mutual information in an MI matrix
+#'
+#' @param initialMatrix A matrix with MI values calculated form an expression
+#'        matrix
+#' @param nullDistMaxtrix A matrix with null values of MI obatined with nullInfoDist
+#' @param numGenes The number of genes in the matrix
+#' @param randomizations Number of times to randomize expression values
+#' @return pMat A matrix with pValues of for the MI values in initialMatrix
+#' @author Juan C. Castro \email{jcastro37@gatech.edu}
+infoScore <- function(initialMatrix,nullDistMatrix,numGenes,randomizations){
+  matSize <- numGenes^2
+  sumDist <- randomizations
+  linealIniMat <- matrix(initialMatrix,ncol=matSize)
+  pVec <- c()
+  for (i in 1:matSize){
+    MICounts <- sum(nullDistMatrix[,i] >= linealIniMat[i])
+    pScore <- MICounts/sumDist
+    pVec[i] <- pScore
+  }
+  pMat <- matrix(pVec,ncol=numGenes,nrow=numGenes)
+  return(pMat)
+}
+#1.3 Initialize variables ===================================================#
+# 1.3.1 Parser variables #
+# Get script name
+initial.options <- commandArgs(trailingOnly = FALSE)
+script.name     <- basename(sub("--file=", "", initial.options[grep("--file=", initial.options)]))
+# Process command line arguments
+# Create a parser
+option_list = list(
+  make_option(c("-p", "--pangenome_matrix"), type = "character", default = NULL,
+              help ="The OGs matrix that contains the precense abcense values for each gene in each genome.", metavar = "character"),
+  make_option(c("-l", "--ogs_list"), type = "character", default = NULL,
+              help ="A file with a list with the OG name from which the network is to be built.", metavar = "character"),
+  make_option(c("-n", "--num_reps"), type = "numeric", default = 100000,
+              help ="Number of repetitions to calculate the null MI distribution.", metavar = "numeric"),
+  make_option(c("-o", "--output"), type = "character", default = "network.tsv",
+              help ="Name of the output file, the output is stored as a tab separated table of either the OGs matrix (binary or numerical) or the rarefraction curve.", metavar = "character")
+  
+)
+# Add command line arguments
+opt_parser = OptionParser(option_list=option_list);
+opt = parse_args(opt_parser);
+opt_names <- names(opt)
+if (is.null(opt$pangenome_matrix)){
+  print_help(opt_parser)
+  err_str <- 'Argument missing "-p" --pangenome_matrix" must be provided.\n'
+  stop(err_str, call.=FALSE)
+} else if (is.null(opt$ogs_list)){
+  print_help(opt_parser)
+  err_str <- 'Argument missing "-l" --ogs_list" must be provided.\n'
+  stop(err_str, call.=FALSE)
+}
+# Parse the command line arguments
+pangenome.matrix <- opt$pangenome_matrix
+ogs.list <- opt$ogs_list
+num.reps <- opt$num_reps
+output <- opt$output
+#===================== 2.0 Format original data as matrix =====================#
+# 2.1 Load data ===============================================================#
+ogs.df <- read.table(file = pangenome.matrix, header = T, row.names = 1, stringsAsFactors = F)
+ogs.list <- read.table(file = ogs.list, header = F, stringsAsFactors = F)
+# 2.2 Subset the data to the OGs of the list
+sub.df <- ogs.df[ogs.list$V1,]
+matrix.data <- t(sub.df)
+num.genes <- ncol(matrix.data)
+#====================== 3.0 Create the graph based on MI ======================#
+# 3.1 Estimate MI and pvalues
+initial.mi <- mutualInfoEst(matrixData = matrix.data, numGenes = num.genes)
+null.mi <- nullInfoDist(matrixData = matrix.data, numGenes = num.genes, randomizations = num.reps)
+pvals.mi <- infoScore(initialMatrix = initial.mi, nullDistMatrix = null.mi, numGenes = num.genes, randomizations = num.reps)
+# 3.2 Store edges as a data.frame object
+edge.list <- data.frame(OG1 = c(), OG2 = c(), MI = c(), pVal = c())
+for (i in 1:num.genes){
+  for (j in 1:num.genes)
+    if(i>j){
+      loc.df <- data.frame (OG1 = ogs.list[i,1], OG2 = ogs.list[j,1], MI = iniMutual[i,j], pVal = pValues[i,j])
+      edge.list <- rbind(edge.list, loc.df)
+    }
+}
+#===================== 4.0 Write the edge list of a file ======================#
+write.table(x = edge.list, file = output, quote = F, sep = '\t', row.names = F)
+#==============================================================================#
