@@ -17,7 +17,7 @@ personal.lib.path = Sys.getenv("R_LIBS_USER")
 if(!file.exists(personal.lib.path))
 	            dir.create(personal.lib.path)
 
-packages <- c("entropy", "igraph", "optparse")
+packages <- c("entropy", "optparse")
 if(any(!(packages %in% installed.packages()))){
 	        cat("Please wait a moment! Installing required packages ...\n")
         install.packages(packages[!(packages %in% installed.packages())],
@@ -29,74 +29,75 @@ if(any(!(packages %in% installed.packages()))){
 #======== 1.0 Load packages, define functions, and initialize variable========#
 # 1.1 Load packages ==========================================================#
 suppressPackageStartupMessages(library(entropy))
-suppressPackageStartupMessages(library(igraph))
 suppressPackageStartupMessages(library(optparse))
 # 1.2 Define functions =======================================================#
 #' Estimate mutual information (MI) for all pairs of variables in an expression
 #' matrix
 #'
-#' @param matrixData A matrix with expression data where columns are genes and
+#' @param matrix.data A matrix with expression data where columns are genes and
 #'        rows are time points
-#' @param numGenes The number of genes in the matrix
-#' @return mutualMat A matrix with values of mutual information for all pair of
+#' @param num.genes The number of genes in the matrix
+#' @return mutual.mat A matrix with values of mutual information for all pair of
 #'        genes 
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
-mutualInfoEst <- function(matrixData,numGenes) {
-  mutualMat <- matrix(ncol=numGenes,nrow=numGenes)
-  for (i in 1:numGenes) {
-    for (j in 1:numGenes) {
+mutualInfoEst <- function(matrix.data,num.genes) {
+  mutual.mat <- matrix(ncol=num.genes, nrow=num.genes)
+  for (i in 1:num.genes) {
+    for (j in 1:num.genes) {
 	    if (i>j) {
-		    discretVec <- cbind(matrixData[,i],matrixData[,j])
-		    mutualMat[i,j] <- suppressWarnings(mi.empirical(discretVec,unit=c("log2")))
+		    discret.vec <- cbind(matrix.data[,i],matrix.data[,j])
+		    mutual.mat[i,j] <- suppressWarnings(mi.empirical(discret.vec,unit=c("log2")))
 	    }
     }
   }
-  return(mutualMat)
+  return(mutual.mat)
 }
 #' Estimate a null distribution of MI for variables in an expression matrix
 #'
-#' @param matrixData A matrix with expression data where columns are genes and
+#' @param matrix.data A matrix with expression data where columns are genes and
 #'        rows are time points
-#' @param numGenes The number of genes in the matrix
+#' @param num.genes The number of genes in the matrix
 #' @param randomizations Number of times to randomize expression values
-#' @return distMat A matrix with values of mutual information for a randomized
+#' @return dist.mat A matrix with values of mutual information for a randomized
 #'        expression matrix where each column is a linearized version of a random
 #'        expression matrix
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
-nullInfoDist <- function(matrixData,numGenes,randomizations){
-  distMat <- matrix(ncol=(numGenes^2),nrow=randomizations)
+nullInfoDist <- function(matrix.data, num.genes, randomizations){
+  ncol.mat <- (num.genes*(num.genes-1))/2 
+  dist.mat <- matrix(ncol = ncol.mat, nrow = randomizations)
   for (counts in 1:randomizations) {
-    randomMatrixData <- matrix(ncol=ncol(matrixData),nrow=(nrow(matrixData)))
-    for (i in 1:ncol(matrixData)){
-      randomMatrixData[,i] <- sample(matrixData[,i])
+    random.matrix.data <- matrix(ncol = ncol(matrix.data), nrow = nrow(matrix.data))
+    for (i in 1:ncol(matrix.data)){
+      random.matrix.data[,i] <- sample(matrix.data[,i])
     }
-    randomMIMat <- mutualInfoEst(randomMatrixData,numGenes)
-    randomMIVec <- matrix(randomMIMat,ncol=(numGenes^2))
-    distMat[counts,] <- randomMIVec
+    random.mi.mat <- mutualInfoEst(random.matrix.data, num.genes)
+    random.mi.vec <- random.mi.mat[lower.tri(random.mi.mat)]
+    dist.mat[counts,] <- random.mi.vec
   }
-  return(distMat)
+  return(dist.mat)
 }
 #' Calculate a score for each value of mutual information in an MI matrix
 #'
-#' @param initialMatrix A matrix with MI values calculated form an expression
+#' @param initial.matrix A matrix with MI values calculated form an expression
 #'        matrix
-#' @param nullDistMaxtrix A matrix with null values of MI obatined with nullInfoDist
-#' @param numGenes The number of genes in the matrix
+#' @param null.dist.maxtrix A matrix with null values of MI obatined with nullInfoDist
+#' @param num.genes The number of genes in the matrix
 #' @param randomizations Number of times to randomize expression values
-#' @return pMat A matrix with pValues of for the MI values in initialMatrix
+#' @return p.mat A matrix with pValues of for the MI values in initialMatrix
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
-infoScore <- function(initialMatrix,nullDistMatrix,numGenes,randomizations){
-  matSize <- numGenes^2
-  sumDist <- randomizations
-  linealIniMat <- matrix(initialMatrix,ncol=matSize)
-  pVec <- c()
-  for (i in 1:matSize){
-    MICounts <- sum(nullDistMatrix[,i] >= linealIniMat[i])
-    pScore <- MICounts/sumDist
-    pVec[i] <- pScore
+infoScore <- function(initial.matrix, null.dist.matrix, num.genes, randomizations){
+  mat.size <- (num.genes*(num.genes-1))/2
+  sum.dist <- randomizations
+  lineal.ini.mat <- initial.matrix[lower.tri(initial.matrix)]
+  p.vec <- c()
+  for (i in 1:mat.size){
+    mi.counts <- sum(null.dist.matrix[,i] >= lineal.ini.mat[i])
+    p.score <- mi.counts/sum.dist
+    p.vec[i] <- p.score
   }
-  pMat <- matrix(pVec,ncol=numGenes,nrow=numGenes)
-  return(pMat)
+  p.mat <- matrix(0, ncol = num.genes, nrow = num.genes)
+  p.mat[lower.tri(p.mat)] <- p.vec
+  return(p.mat)
 }
 #1.3 Initialize variables ===================================================#
 # 1.3.1 Parser variables #
@@ -144,9 +145,9 @@ matrix.data <- t(sub.df)
 num.genes <- ncol(matrix.data)
 #====================== 3.0 Create the graph based on MI ======================#
 # 3.1 Estimate MI and pvalues
-initial.mi <- mutualInfoEst(matrixData = matrix.data, numGenes = num.genes)
-null.mi <- nullInfoDist(matrixData = matrix.data, numGenes = num.genes, randomizations = num.reps)
-pvals.mi <- infoScore(initialMatrix = initial.mi, nullDistMatrix = null.mi, numGenes = num.genes, randomizations = num.reps)
+initial.mi <- mutualInfoEst(matrix.data = matrix.data, num.genes = num.genes)
+null.mi <- nullInfoDist(matrix.data = matrix.data, num.genes = num.genes, randomizations = num.reps)
+pvals.mi <- infoScore(initial.matrix = initial.mi, null.dist.matrix = null.mi, num.genes = num.genes, randomizations = num.reps)
 # 3.2 Store edges as a data.frame object
 edge.list <- data.frame(OG1 = c(), OG2 = c(), MI = c(), pVal = c())
 for (i in 1:num.genes){
