@@ -17,7 +17,7 @@ personal.lib.path = Sys.getenv("R_LIBS_USER")
 if(!file.exists(personal.lib.path))
 	            dir.create(personal.lib.path)
 
-packages <- c("entropy", "igraph")
+packages <- c("entropy", "igraph", "optparse")
 if(any(!(packages %in% installed.packages()))){
 	        cat("Please wait a moment! Installing required packages ...\n")
         install.packages(packages[!(packages %in% installed.packages())],
@@ -30,6 +30,7 @@ if(any(!(packages %in% installed.packages()))){
 # 1.1 Load packages ==========================================================#
 suppressPackageStartupMessages(library(entropy))
 suppressPackageStartupMessages(library(igraph))
+suppressPackageStartupMessages(library(optparse))
 # 1.2 Define functions =======================================================#
 #' Estimate mutual information (MI) for all pairs of variables in an expression
 #' matrix
@@ -44,8 +45,10 @@ mutualInfoEst <- function(matrixData,numGenes) {
   mutualMat <- matrix(ncol=numGenes,nrow=numGenes)
   for (i in 1:numGenes) {
     for (j in 1:numGenes) {
-      discretVec <- cbind(matrixData[,i],matrixData[,j])
-      mutualMat[i,j] <- suppressWarnings(mi.empirical(discretVec,unit=c("log2")))
+	    if (i>j) {
+		    discretVec <- cbind(matrixData[,i],matrixData[,j])
+		    mutualMat[i,j] <- suppressWarnings(mi.empirical(discretVec,unit=c("log2")))
+	    }
     }
   }
   return(mutualMat)
@@ -149,7 +152,7 @@ edge.list <- data.frame(OG1 = c(), OG2 = c(), MI = c(), pVal = c())
 for (i in 1:num.genes){
   for (j in 1:num.genes)
     if(i>j){
-      loc.df <- data.frame (OG1 = ogs.list[i,1], OG2 = ogs.list[j,1], MI = iniMutual[i,j], pVal = pValues[i,j])
+      loc.df <- data.frame (OG1 = ogs.list[i,1], OG2 = ogs.list[j,1], MI = initial.mi[i,j], pVal = pvals.mi[i,j])
       edge.list <- rbind(edge.list, loc.df)
     }
 }
