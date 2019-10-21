@@ -68,7 +68,7 @@ function concatGenes(fasta_directory::String, ids_file::String, output::String)
 			if endswith(file, "fasta")
 				og_id = split(file, ".")[1];
 				if og_id in ess_genes
-					seq_dic = parseFasta(file);
+					seq_dic = parseFasta(joinpath(root,file));
 					for key in collect(keys(seq_dic))
 						if haskey(concat_seqs, key)
 							old_seq = concat_seqs[key];
