@@ -359,7 +359,7 @@ function filterBlastTables(tbl_paths::Array, min_iden::Float64, output::String)
 	num_tables = length(tbl_paths);
 	write(stdout, "Parsing $num_tables to assign taxonomic ranks...");
 	assigned_seqs = Dict();
-	parse_tbl_file(tbl_path, assigned_seqs::Dict, tax_rank) = open(tbl_path) do df
+	parse_tbl_file(tbl_path::String, assigned_seqs::Dict, tax_rank::String) = open(tbl_path) do df
 		for line in eachline(df)
 			fields = split(line, "\t");
 			query_id = fields[1];
