@@ -13,41 +13,40 @@ please type "./parse_concatenateGenes.jl -h" for usage help
 using ArgParse;
 # 1.2 Define functions ===================================================#
 function parseCommandline()
-        s = ArgParseSettings();
-    
-        @add_arg_table s begin
-                "--fasta_directory", "-f"
-                        help = "The directory storing the .fasta files";
-                        required = true;
-                "--ogs_ids", "-i"
-                        help = "The file relating gene names with orthlogous groups";
-                        required = true;
-                "--output", "-o"
-                        help = "File name for the output";
-                        required = false;
-        end
-        return parse_args(s);
+	s = ArgParseSettings();
+	
+	@add_arg_table s begin
+	"--fasta_directory", "-f"
+	help = "The directory storing the .fasta files";
+	required = true;
+	"--ogs_ids", "-i"
+	help = "The file relating gene names with orthlogous groups";
+	required = true;
+	"--output", "-o"
+	help = "File name for the output";
+	required = false;
+end
+return parse_args(s);
 end
 function parseFasta(fasta_file::String)
-        seq_dict = Dict();
-        seq = "";
-        id = "";
+	seq_dict = Dict();seq = "";
+	id = "";
 	sed_line = true;
-        open(fasta_file) do f
-                for line in eachline(f)
-                        line = rstrip(line);
-                        if startswith(line, ">");
+	open(fasta_file) do f
+		for line in eachline(f)
+			line = rstrip(line);
+			if startswith(line, ">");
 				fields = split(line, "|");
 				id = fields[1];
 				id = replace(id, ">" => "");
-                                seq = "";
+				seq = "";
 			else
 				seq = "$seq$line";
 				seq_dict["$id"] = seq;
-                        end
-                end
-        end
-        return(seq_dict);
+			end
+		end
+	end
+	return(seq_dict);
 end
 function parseIDs(ids_file::String)
 	ess_genes = [];

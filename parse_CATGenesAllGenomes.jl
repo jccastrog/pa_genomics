@@ -62,7 +62,7 @@ function parseFasta(fasta_file::String)
 			line = rstrip(line);
 			if startswith(line, ">");
 				fields = split(line, "|");
-				fields[1] = replace(fields[1, ">" => "");
+				fields[1] = replace(fields[1], ">" => "");
 				id = "$genome_name|$(fields[1])";
 				seq = "";
 			else
@@ -81,14 +81,13 @@ function parseCDS(cds_dir::String, output::String, ext::String)
 		"" 
 	end ;
 	for (root, dirs, files) in walkdir(cds_dir)
-			for file in files
-				file_ext = extension(file);
-				if file_ext == ext
-					seq_dict = parseFasta(joinpath(root,file));
-					for key in collect(keys(seq_dict))
-						wrt_line = 	">$key\n$(seq_dict[key])\n";
-						write(out_file, wrt_line);
-					end
+		for file in files
+			file_ext = extension(file);
+			if file_ext == ext
+				seq_dict = parseFasta(joinpath(root,file));
+				for key in collect(keys(seq_dict))
+					wrt_line = 	">$key\n$(seq_dict[key])\n";
+					write(out_file, wrt_line);
 				end
 			end
 		end

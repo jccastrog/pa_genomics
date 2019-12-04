@@ -2,8 +2,8 @@
 #=
 @name: parse_extractLongestOGs.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 25-Dec-2018
-@version: 1.0.2
+@update: 11-Nov-2019
+@version: 1.0.3
 @license: GNU General Public License v3.0.
 please type "./parse_extractLongestOGs.jl -h" for usage help
 =#
@@ -72,7 +72,7 @@ function parseFasta(fasta_file)
 		for line in eachline(f_file)
 			line = rstrip(line);
 			if startswith(line, ">")
-				id = replace(line, ">", "")
+				id = replace(line, ">" => "")
 				fasta_parse[id] = ""
 				seq = ""
 			else
@@ -88,16 +88,19 @@ function extractGenes(genome_arr, dict_OG, genome_dir, ext)
 	seqs_dict = Dict();
 	num_ogs = length(collect(keys(dict_OG)));
 	for genome_name in genome_arr
-		if ext == "fna"
+		if ext == "fna"	
 			fasta_file = "$genome_dir/$genome_name.fna";
 		elseif ext == "faa"
 			fasta_file = "$genome_dir/$genome_name.faa";
 		end
 		try
+			#println(fasta_file);
 			seqs_dict[genome_name] = parseFasta(fasta_file);
 		catch
-			write(SDTERR, "ERROR! Cannot find file $genome_name.$ext in directory $genome_dir.\n")
-			write(SDTERR, "\tVerify the file exists in the specified directory.\n")
+			write(stderr," ");
+			#write(stderr, "ERROR! Cannot find file $genome_name.$ext in directory $genome_dir\n");
+			#write(stderr, "\tVerify the file exists in the specified directory.\n");
+		end
 	end
 	for ogs in keys(dict_OG)
 		seq = "";
@@ -107,7 +110,7 @@ function extractGenes(genome_arr, dict_OG, genome_dir, ext)
 			try
 				for id in gen_dict[loc_genome]
 					loc_seq = seqs_dict[loc_genome][id];
-					loc_pan_id = ">$ogs\|$loc_genome\|$id";
+					loc_pan_id = ">$ogs|$loc_genome|$id";
 					if length(loc_seq) > length(seq)
 						seq = loc_seq;
 						pan_id = loc_pan_id;

@@ -26,7 +26,8 @@ required option --ogs_list was not provided
 usage: getGeneDistance -l OGS_LIST -g GFF_LIST -f OGS_FILE [-o OUTPUT]
 
 julia ./getGeneDistance.jl -h
-usage: getGeneDistance.jl -l OGS_LIST -g GFF_LIST -f OGS_FILE [-o OUTPUT] [-h]
+usage: getGeneDistance.jl -l OGS_LIST -g GFF_LIST -f OGS_FILE
+                        [-o OUTPUT] [-h]
 
 optional arguments:
   -l, --ogs_list OGS_LIST
@@ -43,7 +44,6 @@ optional arguments:
                         OGs in the list in the             genomes
                         sampled. (default: "ogs_distances.tsv")
   -h, --help            show this help message and exit
-
 """
 function parseCommandline()
     s = ArgParseSettings()
@@ -101,17 +101,17 @@ function parseGFF(gff_file::String, gene_arr::Array)
 					if startswith(line, "# Sequence Data:")
 						fields = split(line, " ");
 						length_field = split(fields[4],";")[2];
-						genome_length = split(length_field, "=")[2];
+						genome_length = parse(Int64, split(length_field, "=")[2]);
 					end
 				else
 					fields = split(line, '\t');
-					cds_start = fields[4];
-					cds_end = fields[5];
+					cds_start = parse(Int64, fields[4]);
+					cds_end = parse(Int64, fields[5]);
 					cds_attr = fields[9];
-					attr_fields = split(fields, ";");
+					attr_fields = split(cds_attr, ";");
 					gene_id = split(attr_fields[1], "=")[2];
 					if gene_id in gene_arr
-						gene_dict["gene_id"] = (s = cds_start, e = cds_end); #s start e end
+						gene_dict[gene_id] = (s = cds_start, e = cds_end); #s start e end
 					end
 				end
 			end
@@ -186,9 +186,8 @@ ogs_arr  Array with the OGs to be extracted.
 
 dist_arr Array containing all the pair distances in gene_arr. 
 
-"""
+	"""
 function parseOGS(ogs_file::String, ogs_arr::Array)
-	#ogs_dict = Dict();
 	genome_dict = Dict();
 	genome_arr = [];
 	open(ogs_file) do file
@@ -206,10 +205,11 @@ function parseOGS(ogs_file::String, ogs_arr::Array)
 						if gene_ids[i]!="-"
 							single_genes = split(gene_ids[i], ",");
 							local_genome = genome_arr[i];
-							if haskey(genome_di,local_genome)
+							if haskey(genome_dict,local_genome)
 								genome_dict[local_genome] = vcat(genome_dict[local_genome], single_genes);
 							else
 								genome_dict[local_genome] = single_genes;
+							end
 						end
 					end
 				end
@@ -252,6 +252,8 @@ function getGeneDistances(genome_dict::Dict, gff_list::String)
 	open(gff_list) do gff_file
 		for line in eachline(gff_file)
 			line = rstrip(line);
+			line = convert(String, line)
+			bn_gff = basename(line);
 			push!(gff_arr, line);
 		end
 	end
@@ -282,7 +284,7 @@ ogs_arr = [];
 # 2.1 Parse the OGS file into an array ===================================#
 open(ogs_list) do o_l
 	for line in eachline(o_l)
-		line = rstrip(line, "\n");
+		line = rstrip(line);
 		push!(ogs_arr, line);
 	end
 end
@@ -292,8 +294,9 @@ genome_dict = parseOGS(ogs_file, ogs_arr);
 all_distances = getGeneDistances(genome_dict, gff_list);
 # 2.3 Calculate distances ================================================#
 ###======================= 3.0 Write the output ========================###
+out_stream = open(output, "w");
 for distance_value in all_distances
-	write(out_stream, distance_value);
+	write(out_stream, "$distance_value\n");
 end
 close(out_stream);
 #=========================================================================#
