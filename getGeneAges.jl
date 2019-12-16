@@ -366,8 +366,8 @@ function filterBlastTables(tbl_paths::Array, min_iden::Float64, output::String)
 			subject_id = fields[2]
 			pident = parse(Float64,fields[3]);
 			if pident >= min_iden
-				if haskey(assigned_seqs[query_id])
-					continue
+				if haskey(assigned_seqs, query_id)
+					""
 				else
 					assigned_seqs[query_id] = tax_rank;
 				end
@@ -375,43 +375,43 @@ function filterBlastTables(tbl_paths::Array, min_iden::Float64, output::String)
 		end
 	end
 	try
-		tbl_path = tbl_paths[Bool[contains("domain",i) for i in tbl_paths]]
+		tbl_path = tbl_paths[Bool[occursin("domain",i) for i in tbl_paths]][1]
 		parse_tbl_file(tbl_path, assigned_seqs, "domain");
 	catch
 		write(stderr, "Warning!, no sequences mapped to domain stratum!\n");
 	end
 	try
-		tbl_path = tbl_paths[Bool[contains("phylum",i) for i in tbl_paths]]
+		tbl_path = tbl_paths[Bool[occursin("phylum",i) for i in tbl_paths]][1]
 		parse_tbl_file(tbl_path, assigned_seqs, "phylum");
 	catch
 		write(stderr, "Warning!, no sequences mapped to phylum stratum!\n");
 	end
 	try
-		tbl_path = tbl_paths[Bool[contains("class",i) for i in tbl_paths]]
+		tbl_path = tbl_paths[Bool[occursin("class",i) for i in tbl_paths]][1]
 		parse_tbl_file(tbl_path, assigned_seqs, "class");
 	catch
 		write(stderr, "Warning!, no sequences mapped to class stratum!\n");
 	end
 	try
-		tbl_path = tbl_paths[Bool[contains("order",i) for i in tbl_paths]]
+		tbl_path = tbl_paths[Bool[occursin("order",i) for i in tbl_paths]][1]
 		parse_tbl_file(tbl_path, assigned_seqs, "order");
 	catch
 		write(stderr, "Warning!, no sequences mapped to order stratum!\n");
 	end
 	try
-		tbl_path = tbl_paths[Bool[contains("family",i) for i in tbl_paths]]
+		tbl_path = tbl_paths[Bool[occursin("family",i) for i in tbl_paths]][1]
 		parse_tbl_file(tbl_path, assigned_seqs, "family");
 	catch
 		write(stderr, "Warning!, no sequences mapped to family stratum!\n");
 	end
 	try
-		tbl_path = tbl_paths[Bool[contains("genus",i) for i in tbl_paths]]
+		tbl_path = tbl_paths[Bool[occursin("genus",i) for i in tbl_paths]][1]
 		parse_tbl_file(tbl_path, assigned_seqs, "genus");
 	catch
 		write(stderr, "Warning!, no sequences mapped to genus stratum!\n");
 	end
 	try
-		tbl_path = tbl_paths[Bool[contains("species",i) for i in tbl_paths]]
+		tbl_path = tbl_paths[Bool[occursin("species",i) for i in tbl_paths]][1]
 		parse_tbl_file(tbl_path, assigned_seqs, "species");
 	catch
 		write(stderr, "Warning!, no sequences mapped to species stratum!\n");
@@ -422,7 +422,7 @@ function filterBlastTables(tbl_paths::Array, min_iden::Float64, output::String)
 	end
 	close(out_file);
 	write(stdout,"Done!\nTaxonomic rank assignments have been saved to $output\n");
-end
+ends
 ###========== 2.0  Create databases and perform the mappings ===========###
 # 2.1 Create databases ===================================================#
 database_paths = createStrataDBs(config_file, ref_file, cds_dir);
