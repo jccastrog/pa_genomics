@@ -2,8 +2,8 @@
 #=
 @name: parse_Clustr2OGS.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 28-Oct-2019
-@version: 1.0.0
+@update: 19-dec-2019
+@version: 1.0.2
 @license: GNU General Public License v3.0.
 please type "./parse_Clustr2OGS.jl -h" for usage help
 =#
@@ -74,9 +74,7 @@ function writeTable(ogs_dict::Dict, strain_list::Array,output::String)
 		for strain in strain_list
 			if haskey(ogs_dict[key], strain)
 				if length(ogs_dict[key][strain]) > 1
-					for gene in ogs_dict[key][strain]
-						write(out_file, "$gene,");
-					end
+					write(out_file, join(ogs_dict[key][strain], ","))
 				else
 					write(out_file, "$(ogs_dict[key][strain][1])");
 				end
