@@ -16,17 +16,17 @@ function parseCommandline()
 	s = ArgParseSettings();
 	
 	@add_arg_table s begin
-	"--clstr_file", "-c"
-	help = "Output file with the clustering of CD-HIT";
-	required = true;
-	"--strain_file", "-s"
-	help = "File with the names of the strains used";
-	required = true;
-	"--output", "-o"
-	help = "File name for the output";
-	required = false;
-	default = "output.tsv";
-end
+		"--clstr_file", "-c"
+			help = "Output file with the clustering of CD-HIT";
+			required = true;
+		"--strain_file", "-s"
+			help = "File with the names of the strains used";
+			required = true;
+		"--output", "-o"
+			help = "File name for the output";
+			required = false;
+			default = "output.tsv";
+	end
 return parse_args(s);
 end
 function parseClsrtFile(clstr::String)

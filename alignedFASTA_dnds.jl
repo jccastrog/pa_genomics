@@ -42,16 +42,16 @@ function parseCommandline()
 	s = ArgParseSettings();
 	
 	@add_arg_table s begin
-	"--alignment_file", "-c"
-	help = "File with aligned sequences for a given orthologous
-            group.";
-	required = true;
-	"--output", "-o"
-	help = "Output file. Three columns are printed first columns
-            is DN values second column is DS values final column
-            is DN/DS.";
-	required = false;
-	default = "output.tsv";
+		"--alignment_file", "-c"
+			help = "File with aligned sequences for a given orthologous
+            		group.";
+			required = true;
+		"--output", "-o"
+			help = "Output file. Three columns are printed first columns
+            		is DN values second column is DS values final column
+            		is DN/DS.";
+			required = false;
+			default = "output.tsv";
 	end
 	return parse_args(s);
 end
