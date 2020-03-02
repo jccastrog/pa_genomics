@@ -123,6 +123,7 @@ function singleDnDs(seq1::Array, seq2::Array, genetic_code::Dict, n_dict::Dict, 
 	Sd = 0;
 	l_seq1 = length(seq1);
 	l_seq2 = length(seq2);
+	dn_ds = (dn = 0, ds = 0);
 	if l_seq1==l_seq2
 		for i in 1:l_seq1
 			N += n_dict[seq1[i]];
@@ -202,12 +203,12 @@ function allDnDs(fasta_file::String, genetic_code::Dict, n_dict::Dict, s_dict::D
 	j = 0;
 	for s1 in seq_ids
 		i += 1;
-		if !occursin("-", s1)
-			seq1 = splitByCodon(s1);
+		if !occursin("-", seq_dict[s1])
+			seq1 = splitByCodon(seq_dict[s1]);
 			for s2 in seq_ids
 				j += 1;
-				if !occursin("-", s2)
-					seq2 = splitByCodon(s2)
+				if !occursin("-", seq_dict[s2])
+					seq2 = splitByCodon(seq_dict[s2])
 					if j > i
 						loc_dnds = singleDnDs(seq1, seq2, genetic_code, n_dict, s_dict);
 						push!(arr_dnds, loc_dnds);
@@ -423,10 +424,12 @@ output = parsed_args["output"];
 arr_dnds = allDnDs(alignment_file, genetic_code, n_dict, s_dict);
 # 1.3 Initialize variables ===============================================#
 # 2.1 Parse the array and print the values to STDOUT =====================#
-for i in arr_dnds
-	loc_tup = arr_dnds[i];
-	loc_dnds = loc_tup.dn/loc_tup.ds;
-	wrt_line = "$(loc_tup.dn)\t$(loc_tup.ds)\t$loc_dnds\n";
-	write(STDOUT, wrt_line);
+write(stdout, "DN\tDS\tDN/DS\n");
+for loc_tup in arr_dnds
+	if loc_tup.dn != 0 && loc_tup.ds != 0;
+		loc_dnds = loc_tup.dn/loc_tup.ds;
+		wrt_line = "$(loc_tup.dn)\t$(loc_tup.ds)\t$loc_dnds\n";
+		write(stdout, wrt_line);
+	end
 end
 ###=====================================================================###
