@@ -25,6 +25,7 @@ function parseCommandline()
 	"--output", "-o"
 	help = "File name for the output";
 	required = false;
+	default = "output.tsv";
 end
 return parse_args(s);
 end
