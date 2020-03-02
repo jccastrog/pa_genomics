@@ -2,7 +2,7 @@
 #=
 @name: alignedFASTA_dnds.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 28-Feb-2020
+@update: 02-Mar-2020
 @version: 1.0.0
 @license: GNU General Public License v3.0.
 please type "./alignedFASTA_dnds.jl -h" for usage help
@@ -82,11 +82,9 @@ function splitByCodon(seq::String)
 	codons = [];
 	l_seq = length(seq);
 	if l_seq%3==0
-		if !occursin("-", seq)
-			for i in 1:Int(l_seq/3)
+		for i in 1:Int(l_seq/3)
 				codon = seq[i*3-2:i*3];
 				push!(codons, codon);
-			end
 		end
 	end
 	return codons;
@@ -204,13 +202,17 @@ function allDnDs(fasta_file::String, genetic_code::Dict, n_dict::Dict, s_dict::D
 	j = 0;
 	for s1 in seq_ids
 		i += 1;
-		seq1 = splitByCodon(s1);
-		for s2 in seq_ids
-			j += 1;
-			seq2 = splitByCodon(s2)
-			if j > i
-				loc_dnds = singleDnDs(seq1, seq2, genetic_code, n_dict, s_dict);
-				push!(arr_dnds, loc_dnds);
+		if !occursin("-", s1)
+			seq1 = splitByCodon(s1);
+			for s2 in seq_ids
+				j += 1;
+				if !occursin("-", s2)
+					seq2 = splitByCodon(s2)
+					if j > i
+						loc_dnds = singleDnDs(seq1, seq2, genetic_code, n_dict, s_dict);
+						push!(arr_dnds, loc_dnds);
+					end
+				end
 			end
 		end
 	end
