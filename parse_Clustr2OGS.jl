@@ -35,7 +35,7 @@ function parseClsrtFile(clstr::String)
 	strain_dict = Dict();
 	open(clstr) do file
 		for line in eachline(file)
-			if startswith(line, ">Cluster")
+			if startswith(line, ">clustering")
 				k += 1;
 				strain_dict = Dict()
 			else
