@@ -42,7 +42,7 @@ function parseCommandline()
 	s = ArgParseSettings();
 	
 	@add_arg_table s begin
-		"--alignment_file", "-c"
+		"--alignment_file", "-a"
 			help = "File with aligned sequences for a given orthologous
             		group.";
 			required = true;
@@ -424,7 +424,7 @@ output = parsed_args["output"];
 arr_dnds = allDnDs(alignment_file, genetic_code, n_dict, s_dict);
 # 1.3 Initialize variables ===============================================#
 # 2.1 Parse the array and print the values to STDOUT =====================#
-write(stdout, "DN\tDS\tDN/DS\n");
+#write(stdout, "DN\tDS\tDN/DS\n");
 for loc_tup in arr_dnds
 	if loc_tup.dn != 0 && loc_tup.ds != 0;
 		loc_dnds = loc_tup.dn/loc_tup.ds;
