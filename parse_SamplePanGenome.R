@@ -51,6 +51,7 @@ parseOGBinary <- function(in.file){
     }
   }
   colnames(binary.mat) <- genome.list
+  row.names(binary.mat) <- row.names(text.mat)
   return(binary.mat)
 }
 #' Take a pangenome matrix and convert it to numerical
@@ -76,6 +77,7 @@ parseOGNumerical <- function(in.file){
     }
   }
   colnames(numerical.mat) <- genome.list
+  row.names(numerical.mat) <- row.names(text.mat)
   return(numerical.mat)
 }
 #' Take a pangenome matrix and sample it to obtain the pan-core curve
