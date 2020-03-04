@@ -6,7 +6,7 @@
 #           Georgia Institute of Technology
 #           
 # Version:  1.0
-# Date:     05-Ago-2019
+# Date:     04-Mar2020
 # License:  GNU General Public License v3.0.
 # ==============================================================================
 # 
@@ -135,7 +135,7 @@ option_list = list(
   make_option(c("-r", "--num_reps"), type = "numeric", default = NULL,
               help ="Number of repeated sampling of the pangeome in each iteration.", metavar = "numeric"),
   make_option(c("-o", "--output"), type = "character", default = NULL,
-              help ="Name of the output file, the output is stored as a tab separated table of either the OGs matrix (binary or numerical) or the rarefraction curve.", metavar = "character")
+              help ="Basename of the output file, the output is stored as a tab separated table of either the OGs matrix (binary or numerical) and the rarefraction curve.", metavar = "character")
   
 )
 # Add command line arguments
@@ -163,32 +163,28 @@ output <- opt$output
 # 2.1 Convert to binary ========================================#
 if (convert.binary){
   binary.matrix <- parseOGBinary(in.file = pangenome.matrix)
-  write.table(x = binary.matrix, file = output, quote = F, sep = '\t', row.names = F)
+  write.table(x = binary.matrix, file = paste(output,".binary.tsv", sep = ""), quote = F, sep = '\t', row.names = F)
 }
 # 2.2 Convert to numerical =====================================#
 if (convert.numerical){
   numerical.matrix <- parseOGNumerical(in.file = pangenome.matrix)
-  write.table(x = numerical.matrix, file = output, quote = F, sep = '\t', row.names = F)
+  write.table(x = numerical.matrix, file = paste(output,".numerical.tsv", sep = ""), quote = F, sep = '\t', row.names = F)
 }
 #============== 3.0 Sample the pangenome ==============#
 if (sample.pangenome){
   raref.curve <- samplePanGenome(in.file = pangenome.matrix, samp.perc.retain = samp.perc.retain, num.reps = num.reps)
   newdf <- data.frame(genomes = c(seq(1,138),seq(1,138)), val = c(raref.curve$core_avg, raref.curve$pan_avg),
                       sd = c(raref.curve$core_sd, raref.curve$pan_sd), set = c(rep("Core", 138), rep("Pan", 138)))
+  write.table(x = raref.curve, file = paste(output,".pangenome.tsv", sep = ""), quote = F, sep = '\t', row.names = F)
+  pdf(paste(output,".pangenome.pdf", sep = ""), width = 10, height = 10)
   p <- ggplot(newdf, aes(colour=set)) + geom_point(aes( x = genomes, y = val)) +
-    geom_errorbar(aes(x = genomes, ymin  = val - sd, ymax = val + sd)) +
-    scale_colour_manual(values = c("#00FF00", "#0000FF")) +
+    geom_errorbar(aes(x = genomes, ymin  = val- sd, ymax = val + sd)) +
+    scale_colour_manual(values = c("#D7B30B", "#008B85")) +
     xlab("Number of genomes") + ylab("Number of OGs") +
     theme_classic() + theme(legend.position = "none")
-  #write.table(x = raref.curve, file = output, quote = F, sep = '\t', row.names = F)
+  p
+  dev.off()
+  
 }
 
-pdf("~/projects/pa_genomics/plots/pangenomePA.pdf", width = 10, height = 10)
-p <- ggplot(newdf, aes(colour=set)) + geom_point(aes( x = genomes, y = val)) +
-  geom_errorbar(aes(x = genomes, ymin  = val- sd, ymax = val + sd)) +
-  scale_colour_manual(values = c("#D7B30B", "#008B85")) +
-  xlab("Number of genomes") + ylab("Number of OGs") +
-  theme_classic() + theme(legend.position = "none")
-p
-dev.off()
 #======================================================#
