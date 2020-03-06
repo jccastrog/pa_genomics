@@ -39,7 +39,6 @@ suppressPackageStartupMessages(library(optparse))
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
 parseOGBinary <- function(in.file){
   text.mat <- read.table(in.file, header = T, stringsAsFactors = F)
-  cat(paste(row.names(text.mat), sep = ''))
   num.genomes <- ncol(text.mat)
   num.ogs <- nrow(text.mat)
   genome.list <- colnames(text.mat)
