@@ -39,6 +39,7 @@ suppressPackageStartupMessages(library(optparse))
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
 parseOGBinary <- function(in.file){
   text.mat <- read.table(in.file, header = T, stringsAsFactors = F)
+  cat(paste(row.names(text.mat), sep = ''))
   num.genomes <- ncol(text.mat)
   num.ogs <- nrow(text.mat)
   genome.list <- colnames(text.mat)
@@ -165,12 +166,12 @@ output <- opt$output
 # 2.1 Convert to binary ========================================#
 if (convert.binary){
   binary.matrix <- parseOGBinary(in.file = pangenome.matrix)
-  write.table(x = binary.matrix, file = paste(output,".binary.tsv", sep = ""), quote = F, sep = '\t', row.names = F)
+  write.table(x = binary.matrix, file = paste(output,".binary.tsv", sep = ""), quote = F, sep = '\t', row.names = T)
 }
 # 2.2 Convert to numerical =====================================#
 if (convert.numerical){
   numerical.matrix <- parseOGNumerical(in.file = pangenome.matrix)
-  write.table(x = numerical.matrix, file = paste(output,".numerical.tsv", sep = ""), quote = F, sep = '\t', row.names = F)
+  write.table(x = numerical.matrix, file = paste(output,".numerical.tsv", sep = ""), quote = F, sep = '\t', row.names = T)
 }
 #============== 3.0 Sample the pangenome ==============#
 if (sample.pangenome){
