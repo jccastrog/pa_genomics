@@ -14,7 +14,7 @@ using ArgParse
 function parse_commandline()
     s = ArgParseSettings()
 
-    @add_arg_table s begin
+    @add_arg_table! s begin
         "--ogsFile", "-f"
             help = "File with the OGs for the genomes in the pangenome."
 			required = true
