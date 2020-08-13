@@ -2,7 +2,7 @@
 #=
 @name: parse_extractLongestOGs.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 11-Nov-2019
+@update: 13-Aug-2020
 @version: 1.0.3
 @license: GNU General Public License v3.0.
 please type "./parse_extractLongestOGs.jl -h" for usage help
