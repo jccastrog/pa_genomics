@@ -3,7 +3,7 @@
 @name: parse_extractLongestOGs.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
 @update: 13-Aug-2020
-@version: 1.0.3
+@version: 1.2.1
 @license: GNU General Public License v3.0.
 please type "./parse_extractLongestOGs.jl -h" for usage help
 =#
@@ -94,12 +94,10 @@ function extractGenes(genome_arr, dict_OG, genome_dir, ext)
 			fasta_file = "$genome_dir/$genome_name.faa";
 		end
 		try
-			#println(fasta_file);
 			seqs_dict[genome_name] = parseFasta(fasta_file);
 		catch
-			write(stderr," ");
-			#write(stderr, "ERROR! Cannot find file $genome_name.$ext in directory $genome_dir\n");
-			#write(stderr, "\tVerify the file exists in the specified directory.\n");
+			write(stderr, "ERROR! Cannot find file $genome_name.$ext in directory $genome_dir\n");
+			write(stderr, "\tVerify the file exists in the specified directory.\n");
 		end
 	end
 	for ogs in keys(dict_OG)
