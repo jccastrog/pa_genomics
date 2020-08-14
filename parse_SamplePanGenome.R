@@ -6,7 +6,7 @@
 #           Georgia Institute of Technology
 #           
 # Version:  1.0
-# Date:     04-Mar2020
+# Date:     14-Aug-2020
 # License:  GNU General Public License v3.0.
 # ==============================================================================
 # 
@@ -175,8 +175,9 @@ if (convert.numerical){
 #============== 3.0 Sample the pangenome ==============#
 if (sample.pangenome){
   raref.curve <- samplePanGenome(in.file = pangenome.matrix, samp.perc.retain = samp.perc.retain, num.reps = num.reps)
-  newdf <- data.frame(genomes = c(seq(1,138),seq(1,138)), val = c(raref.curve$core_avg, raref.curve$pan_avg),
-                      sd = c(raref.curve$core_sd, raref.curve$pan_sd), set = c(rep("Core", 138), rep("Pan", 138)))
+  num.genomes <- nrow(raref.curve)
+  newdf <- data.frame(genomes = c(seq(1,num.genomes),seq(1,num.genomes)), val = c(raref.curve$core_avg, raref.curve$pan_avg),
+                      sd = c(raref.curve$core_sd, raref.curve$pan_sd), set = c(rep("Core", num.genomes), rep("Pan", num.genomes)))
   write.table(x = raref.curve, file = paste(output,".pangenome.tsv", sep = ""), quote = F, sep = '\t', row.names = F)
   pdf(paste(output,".pangenome.pdf", sep = ""), width = 10, height = 10)
   p <- ggplot(newdf, aes(colour=set)) + geom_point(aes( x = genomes, y = val)) +
@@ -188,5 +189,4 @@ if (sample.pangenome){
   dev.off()
   
 }
-
 #======================================================#
