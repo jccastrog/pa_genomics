@@ -6,7 +6,7 @@
 #           Georgia Institute of Technology
 #           
 # Version:  1.0
-# Date:     13-Aug-2020
+# Date:     18-Aug-2020
 # License:  GNU General Public License v3.0.
 # ==============================================================================
 # 
@@ -36,22 +36,24 @@ suppressPackageStartupMessages(library(igraph))
 #'
 #' @param matrixData A matrix with binary values where the colums are genomes
 #'        and the rows are orthologous groups
-#' @param numGenes The number of orthologous groups in the matrix
 #' @return mutualMat A matrix with values of mutual information for all pair of
 #'        genes 
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
-mutualInfoEst <- function(matrixData,numGenes) {
-  numBins <- ceiling(log2(nrow(matrixData)+1))
+mutualInfoEst <- function(matrixData) {
+  numGenes <- nrow(matrixData)
+  numBins <- 2
   mutualMat <- matrix(ncol=numGenes,nrow=numGenes)
   for (i in 1:numGenes) {
     for (j in 1:numGenes) {
-      numVarsI <- length(table(matrixData[i,]))
-      numVarsJ <- length(table(matrixData[j,]))
-      if (numVarsI >1 & numVarsJ >1){
-        discretVec <- discretize2d(matrixData[i,],matrixData[j,],numBins,numBins)
-        mutualMat[i,j] <- suppressWarnings(mi.empirical(discretVec,unit=c("log2")))
-      } else {
-        mutualMat[i,j] <- 0
+      if (i>j){
+        numVarsI <- length(table(matrixData[i,]))
+        numVarsJ <- length(table(matrixData[j,]))
+        if (numVarsI >1 & numVarsJ >1){
+          discretVec <- discretize2d(matrixData[i,],matrixData[j,],numBins,numBins)
+          mutualMat[i,j] <- suppressWarnings(mi.empirical(discretVec,unit=c("log2")))
+        } else {
+          mutualMat[i,j] <- 0
+        }
       }
     }
   }
@@ -59,17 +61,17 @@ mutualInfoEst <- function(matrixData,numGenes) {
 }
 #' Estimate a null distribution of MI for variables in an expression matrix
 #'
-#' @param numGenes The number of genes in the matrix for which the heuristic
+#' @param numGenomes The number of genomes in the matrix for which the heuristic
 #'        is being calculated
 #' @param randomizations Number of times to randomize expression values
 #' @return MIvals A vector with a sample of posible values of mutual information
 #'        for a given matrix size
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
-nullInfoDist <- function(numGenes,randomizations){
+nullInfoDist <- function(numGenomes,randomizations){
   MIvals <- c()
   for (counts in 1:randomizations){
-    vecI <- round(runif(n = numGenes, min = 0, max = 1))
-    vecJ <- round(runif(n = numGenes, min = 0, max = 1))
+    vecI <- round(runif(n = numGenomes, min = 0, max = 1))
+    vecJ <- round(runif(n = numGenomes, min = 0, max = 1))
     numVarsI <- length(table(vecI))
     numVarsJ <- length(table(vecJ))
     if (numVarsI >1 & numVarsJ >1){
@@ -93,13 +95,14 @@ nullInfoDist <- function(numGenes,randomizations){
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
 infoScore <- function(initialMatrix,nullDistVec){
   numOGS <-  ncol(initialMatrix)
-  matSize <- numOGS^2
-  sumDist <- length(nullDistMatrix)
-  pMat <- matix(0, ncol = numOGS , nrow = numOGS)
-  for (i in 1:matSize){
-    for (j in 1:matSize){
-      pScore <- sum(nullDistVec >= initialMatrix[i,j])
-      pMat[i,j] <- pScore
+  sumDist <- length(nullDistVec)
+  pMat <- matrix(0, ncol = numOGS , nrow = numOGS)
+  for (i in 1:numOGS){
+    for (j in 1:numOGS){
+      if (i>j){
+        pScore <- sum(nullDistVec >= initialMatrix[i,j])/sumDist
+        pMat[i,j] <- pScore
+      }
     }
   }
   return(pMat)
@@ -156,8 +159,8 @@ if (exists("ogs")){
   sub.pangenome <- pangenome.df
 }
 #============== 3.0 Calculate MI values and p.values respectively ==============#
-initial.MI <- mutualInfoEst(matrixData = sub.pangenome, numGenes = ncol(sub.pangenome))
-null.MI <- nullInfoDist(numGenes = ncol(sub.pangenome), randomizations = 1000)
+initial.MI <- mutualInfoEst(matrixData = sub.pangenome)
+null.MI <- nullInfoDist(numGenomes = ncol(sub.pangenome), randomizations = 1000000)
 p.values < - infoScore(initialMatrix = initial.MI, nullDistVec = null.MI)
 #============== 4.0 Parse the p.values as edge list ==============#
 i.names <- row.names(p.values)
@@ -172,3 +175,4 @@ write.table(x = big.edge.list, file = output, quote = F, sep = '\t')
 #==========================================================================================#
 small.edge.list <- subset(big.edge.list, big.edge.list$pval < 0.01)
 local.net <- graph_from_data_frame(d = small.edge.list[,1:2], directed = F)
+#==========================================================================================#
