@@ -41,6 +41,7 @@ suppressPackageStartupMessages(library(igraph))
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
 mutualInfoEst <- function(matrixData) {
   numGenes <- nrow(matrixData)
+  geneNames <- rownames(matrixData)
   numBins <- 2
   mutualMat <- matrix(ncol=numGenes,nrow=numGenes)
   for (i in 1:numGenes) {
@@ -57,6 +58,8 @@ mutualInfoEst <- function(matrixData) {
       }
     }
   }
+  rownames(mutualMat) <- geneNames
+  colnames(mutualMat) <- geneNames
   return(mutualMat)
 }
 #' Estimate a null distribution of MI for variables in an expression matrix
@@ -94,6 +97,7 @@ nullInfoDist <- function(numGenomes,randomizations){
 #' @return pMat A matrix with pValues of for the MI values in initialMatrix
 #' @author Juan C. Castro \email{jcastro37@gatech.edu}
 infoScore <- function(initialMatrix,nullDistVec){
+  geneNames <- rownames(initialMatrix)
   numOGS <-  ncol(initialMatrix)
   sumDist <- length(nullDistVec)
   pMat <- matrix(0, ncol = numOGS , nrow = numOGS)
@@ -105,6 +109,7 @@ infoScore <- function(initialMatrix,nullDistVec){
       }
     }
   }
+428
   return(pMat)
 }
 #1.3 Initialize variables ===================================================#
@@ -117,8 +122,8 @@ script.name     <- basename(sub("--file=", "", initial.options[grep("--file=", i
 option_list = list(
   make_option(c("-g", "--pangenome_matrix"), type = "character", default = NULL,
               help ="The OGs matrix in which each row is an OG and each column is a strain.", metavar = "character"),
-  make_option(c("-l", "--list_ogs"), type = "logical", default = FALSE,
-              help ="A lilst with the OGs selected as relevant features.", metavar = "logical"),
+  make_option(c("-l", "--list_ogs"), type = "character", default = FALSE,
+              help ="A lilst with the OGs selected as relevant features.", metavar = "character"),
   make_option(c("-o", "--output"), type = "character", default = NULL,
               help ="Name of the output file, the output is stored as a tab separated table of either the OGs matrix (binary or numerical) or the rarefraction curve.", metavar = "character")
   
@@ -149,22 +154,22 @@ big.edge.list <- data.frame(g1 = c(), g2 = c(), pval = c())
 pangenome.df <- read.table(pangenome.matrix, h = T ,
                            stringsAsFactors = F, sep = '\t', row.names = 1)
 if (exists("list.ogs")){
-ogs <- read.table(list.ogs, h = F,
+  ogs <- read.table(list.ogs, h = F,
                   stringsAsFactors = F)
 }
 # 2.2 Process the data =====================================#
 if (exists("ogs")){
-  sub.pangenome <- subset(pangenome.df, rownames(pangenome.df)%in%ogs)
+  sub.pangenome <- subset(pangenome.df, rownames(pangenome.df)%in%ogs$V1)
 } else {
   sub.pangenome <- pangenome.df
 }
 #============== 3.0 Calculate MI values and p.values respectively ==============#
 initial.MI <- mutualInfoEst(matrixData = sub.pangenome)
 null.MI <- nullInfoDist(numGenomes = ncol(sub.pangenome), randomizations = 1000000)
-p.values < - infoScore(initialMatrix = initial.MI, nullDistVec = null.MI)
+p.values <- infoScore(initialMatrix = initial.MI, nullDistVec = null.MI)
 #============== 4.0 Parse the p.values as edge list ==============#
-i.names <- row.names(p.values)
-j.names <- col.names(p.values)
+i.names <- rownames(p.values)
+j.names <- colnames(p.values)
 for (i in 1:nrow(p.values)){
   for (j in 1:ncol(p.values)){
     loc.edge.list <- data.frame(g1 = i.names[i], g2 = j.names[j], pval = p.values[i,j])     
