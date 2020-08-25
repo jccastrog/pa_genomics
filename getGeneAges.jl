@@ -422,7 +422,7 @@ function filterBlastTables(tbl_paths::Array, min_iden::Float64, output::String)
 	end
 	close(out_file);
 	write(stdout,"Done!\nTaxonomic rank assignments have been saved to $output\n");
-ends
+end
 ###========== 2.0  Create databases and perform the mappings ===========###
 # 2.1 Create databases ===================================================#
 database_paths = createStrataDBs(config_file, ref_file, cds_dir);
