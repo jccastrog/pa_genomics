@@ -6,7 +6,7 @@
 #           Georgia Institute of Technology
 #           
 # Version:  1.0
-# Date:     18-Aug-2020
+# Date:     20-Aug-2020
 # License:  GNU General Public License v3.0.
 # ==============================================================================
 # 
@@ -17,7 +17,7 @@ personal.lib.path = Sys.getenv("R_LIBS_USER")
 if(!file.exists(personal.lib.path))
   dir.create(personal.lib.path)
 
-packages <- c("optparse", "entropy", "igraph")
+packages <- c("optparse", "entropy")
 if(any(!(packages %in% installed.packages()))){
   cat("Please wait a moment! Installing required packages ...\n")
   install.packages(packages[!(packages %in% installed.packages())],
@@ -29,7 +29,6 @@ if(any(!(packages %in% installed.packages()))){
 # 1.1 Load packages ==========================================================#
 suppressPackageStartupMessages(library(optparse))
 suppressPackageStartupMessages(library(entropy))
-suppressPackageStartupMessages(library(igraph))
 # 1.2 Define functions =======================================================#
 #' Estimate mutual information (MI) for all pairs of variables in an expression
 #' matrix
@@ -109,7 +108,8 @@ infoScore <- function(initialMatrix,nullDistVec){
       }
     }
   }
-428
+  rownames(pMat) <- geneNames
+  colnames(pMat) <- geneNames
   return(pMat)
 }
 #1.3 Initialize variables ===================================================#
@@ -143,9 +143,7 @@ if (is.null(opt$pangenome_matrix)){
 }
 # Parse the command line arguments
 pangenome.matrix <- opt$pangenome_matrix
-if (exists("opt$list_ogs")){
-  list.ogs <- opt$list_ogs
-}
+list.ogs <- opt$list_ogs
 output <- opt$output
 #Global variables
 big.edge.list <- data.frame(g1 = c(), g2 = c(), pval = c()) 
@@ -164,7 +162,7 @@ if (exists("ogs")){
   sub.pangenome <- pangenome.df
 }
 #============== 3.0 Calculate MI values and p.values respectively ==============#
-initial.MI <- mutualInfoEst(matrixData = sub.pangenome)
+initial.MI <- mutualInfoEst(matrixData = as.matrix(sub.pangenome))
 null.MI <- nullInfoDist(numGenomes = ncol(sub.pangenome), randomizations = 1000000)
 p.values <- infoScore(initialMatrix = initial.MI, nullDistVec = null.MI)
 #============== 4.0 Parse the p.values as edge list ==============#
@@ -172,12 +170,16 @@ i.names <- rownames(p.values)
 j.names <- colnames(p.values)
 for (i in 1:nrow(p.values)){
   for (j in 1:ncol(p.values)){
-    loc.edge.list <- data.frame(g1 = i.names[i], g2 = j.names[j], pval = p.values[i,j])     
-    big.edge.list <- rbind(big.edge.list, loc.edge.list)
+    if (i>j){
+      loc.edge.list <- data.frame(g1 = i.names[i], g2 = j.names[j], pval = p.values[i,j])     
+      big.edge.list <- rbind(big.edge.list, loc.edge.list)
+    }
   }
 }
-write.table(x = big.edge.list, file = output, quote = F, sep = '\t')
-#==========================================================================================#
-small.edge.list <- subset(big.edge.list, big.edge.list$pval < 0.01)
-local.net <- graph_from_data_frame(d = small.edge.list[,1:2], directed = F)
+pdf(paste(output,".pdf"))
+hist(null.MI, breaks = 100, col = "grey55")
+hist(initial.MI, breaks = 100, col = "blue")
+hist(p.values, breaks = 100, col = "blue")
+graphics.off()
+write.table(x = big.edge.list, file = output, quote = F, sep = '\t', row.names = F)
 #==========================================================================================#
