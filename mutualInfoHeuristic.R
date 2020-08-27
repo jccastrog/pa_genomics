@@ -176,7 +176,7 @@ for (i in 1:nrow(p.values)){
     }
   }
 }
-pdf(paste(output,".pdf"))
+pdf(paste(output,".pdf", sep = ""))
 hist(null.MI, breaks = 100, col = "grey55")
 hist(initial.MI, breaks = 100, col = "blue")
 hist(p.values, breaks = 100, col = "blue")
