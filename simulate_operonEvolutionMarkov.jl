@@ -2,7 +2,7 @@
 #=
 @name: simulate_operonEvolutionMarkov.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 19-Aug-2020
+@update: 27-Aug-2020
 @version: 1.0
 @license: GNU General Public License v3.0.
 please type "./simulate_operonEvolutionMarkov.jl.jl -h" for usage help
@@ -299,7 +299,7 @@ function addOGs(genome_id::String, og_ids::Array, genome_dict::Dict, replacement
 end
 """
 """
-function addSelection(genome_id::String,  og_ids::Array, genome_dict::Dict, replacement_size ::Int64, fit_mat::Array, all_kd::Array)
+function addSelection(genome_id::String,  og_ids::Array, genome_dict::Dict, replacement_size::Int64, fit_mat::Array, all_kd::Array)
 	strRemove(simp_str::String) = try
 		parse(Int64, split(simp_str, "_")[2]);
 	catch
@@ -381,7 +381,7 @@ function removeOGs(genome_id::String, genome_dict::Dict, replacement_size ::Int6
 end
 """
 """
-function removeSelection(genome_id::String, genome_dict::Dict, replacement_size ::Int64, fit_mat::Array, all_kd::Array)
+function removeSelection(genome_id::String, genome_dict::Dict, replacement_size::Int64, fit_mat::Array, all_kd::Array)
 	strRemove(simp_str::String) = try
 		parse(Int64, split(simp_str, "_")[2]);
 	catch
@@ -468,7 +468,7 @@ function shuffleGenome(genome_id::String, genome_dict::Dict, replacement_size ::
 end
 """
 """
-function shuffleSelection(genome_id::String, genome_dict::Dict, replacement_size ::Int64, fit_mat::Array, all_kd::Array)
+function shuffleSelection(genome_id::String, genome_dict::Dict, replacement_size::Int64, fit_mat::Array, all_kd::Array)
 	strRemove(simp_str::String) = try
 		parse(Int64, split(simp_str, "_")[2]);
 	catch
@@ -512,23 +512,26 @@ function shuffleSelection(genome_id::String, genome_dict::Dict, replacement_size
 		if (i + replacement_increment) > genome_length
 				j = (i + replacement_increment) - genome_length;
 				loc_frag = vcat(joint_weights[i], joint_weights[j]);
-				loc_index = vcat(i:genome_length, 1:j);
+				loc_index = vcat(i:genome_length, 1:j); #HERE
 				loc_weights = sum(loc_frag);
 				push!(joint_weights_fragment, loc_weights);
 				push!(fragment_coordinates, loc_index);
 			else
 				j = i + replacement_increment;
 				loc_frag = vcat(joint_weights[i], joint_weights[j]);
-				loc_index = i+1:j+1;
+				loc_index = i:j;
 				loc_weights = sum(loc_frag);
 				push!(joint_weights_fragment, loc_weights);
 				push!(fragment_coordinates, loc_index);
 		end
 	end
+	fragment_coordinates = append!(fragment_coordinates[2:end], [fragment_coordinates[1]]);
+	joint_probs = Weights(joint_weights_fragment/sum(joint_weights_fragment));
 	shuffle_fragment = sample(fragment_coordinates, joint_probs);
 	fragment = genome_loc[shuffle_fragment];
 	filter!(x -> x ∉ fragment, genome_loc);
 	genome_length = length(genome_loc);
+	genome_loc_int = [strRemove(x) for x in genome_loc];
 	fit_submat = fit_mat[genome_loc_int, genome_loc_int];
 	kd = all_kd[genome_loc_int];
 	insert_weights_single = fit_submat * kd;
