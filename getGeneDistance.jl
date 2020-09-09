@@ -48,7 +48,7 @@ optional arguments:
 function parseCommandline()
     s = ArgParseSettings()
 
-    @add_arg_table s begin
+    @add_arg_table! s begin
     	"--ogs_list", "-l"
     		help = "File with the OGs for which distances are going to be calculated."
     		required = true
