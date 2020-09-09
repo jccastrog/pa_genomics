@@ -95,6 +95,7 @@ function parseGFF(gff_file::String, gene_arr::Array)
 	gff_ext = extension(gff_file)
 	if gff_ext == ".gz"
 		GZip.open(gff_file) do g_file
+			genome_name = splitext(splitext(gff_file)[1])[1];
 			for line in eachline(g_file)
 				line =  rstrip(line);
 				if startswith(line, "#")
@@ -110,14 +111,13 @@ function parseGFF(gff_file::String, gene_arr::Array)
 					cds_attr = fields[9];
 					attr_fields = split(cds_attr, ";");
 					gene_id = split(attr_fields[1], "=")[2];
-					if gene_id in gene_arr
-						gene_dict[gene_id] = (s = cds_start, e = cds_end); #s start e end
-					end
+					gene_dict[gene_id] = (s = cds_start, e = cds_end); #s start e end
 				end
 			end
 		end
 	elseif gff_ext == ".gff3"
 		open(gff_file) do g_file
+			genome_name = splitext(gff_file)[1];
 			for line in eachline(g_file)
 				line =  rstrip(line);
 				if startswith(line, "#")
@@ -133,9 +133,7 @@ function parseGFF(gff_file::String, gene_arr::Array)
 					cds_attr = fields[9];
 					attr_fields = split(cds_attr, ";");
 					gene_id = split(attr_fields[1], "=")[2];
-					if gene_id in gene_arr
-						gene_dict[gene_id] = (s = cds_start, e = cds_end); #s start e end
-					end
+					gene_dict[gene_id] = (s = cds_start, e = cds_end); #s start e end
 				end
 			end
 		end
@@ -148,23 +146,29 @@ function parseGFF(gff_file::String, gene_arr::Array)
 		d2 = Int64;
 		for j in 1:arr_length
 			if i>j
-				g1 = gene_arr[i];
-				g2 = gene_arr[j];
-				g1_start = gene_dict[g1].s;
-				g1_end = gene_dict[g1].e;
-				g2_start = gene_dict[g2].s;
-				g2_end = gene_dict[g2].e;
-				if g1_start > g2_start
-					d1 = g1_start - g2_end;
-					d2 = genome_length - g1_end + g2_start;
-				else
-					d1 = g2_start - g1_end;
-					d2 = genome_length - g2_end + g1_start;
-				end
-				if d1 < d2
-					push!(dist_arr, d1);
-				else
-					push!(dist_arr, d2);
+				tuple_1 = gene_arr[i];
+				tuple_2 = gene_arr[j];
+				for gi in tuple_1.genes
+					for gj in tuple_2.genes
+						gi_start = gene_dict[gi].s;
+						gi_end = gene_dict[gi].e;
+						gj_start = gene_dict[gj].s;
+						gj_end = gene_dict[gj].e;
+						if gi_start > gj_start
+							d1 = gi_start - gj_end;
+							d2 = genome_length - gi_end + gj_start;
+						else
+							d1 = gj_start - gi_end;
+							d2 = genome_length - gj_end + gi_start;
+						end
+						if d1 < d2
+							loc_arr = [tuple_1.og tuple_2.og d1];
+							dist_arr = [dist_arr ; loc_arr];
+						else
+							loc_arr = [tuple_1.og tuple_2.og d2];
+							dist_arr = [dist_arr ; loc_arr];
+						end
+					end
 				end
 			end
 		end
@@ -204,11 +208,12 @@ function parseOGS(ogs_file::String, ogs_arr::Array)
 					for i in 1:num_genes
 						if gene_ids[i]!="-"
 							single_genes = split(gene_ids[i], ",");
+							tuple_genes = (og = og, genes = single_genes)
 							local_genome = genome_arr[i];
 							if haskey(genome_dict,local_genome)
-								genome_dict[local_genome] = vcat(genome_dict[local_genome], single_genes);
+								genome_dict[local_genome] = vcat(genome_dict[local_genome], tuple_genes);
 							else
-								genome_dict[local_genome] = single_genes;
+								genome_dict[local_genome] = tuple_genes;
 							end
 						end
 					end
