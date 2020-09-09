@@ -95,7 +95,7 @@ function parseGFF(gff_file::String, gene_arr::Array)
 	gff_ext = extension(gff_file)
 	if gff_ext == ".gz"
 		GZip.open(gff_file) do g_file
-			genome_name = splitext(splitext(gff_file)[1])[1];
+			genome_name = basename(splitext(splitext(gff_file)[1])[1]);
 			for line in eachline(g_file)
 				line =  rstrip(line);
 				if startswith(line, "#")
@@ -117,7 +117,7 @@ function parseGFF(gff_file::String, gene_arr::Array)
 		end
 	elseif gff_ext == ".gff3"
 		open(gff_file) do g_file
-			genome_name = splitext(gff_file)[1];
+			genome_name = basename(splitext(gff_file)[1]);
 			for line in eachline(g_file)
 				line =  rstrip(line);
 				if startswith(line, "#")
