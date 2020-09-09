@@ -2,7 +2,7 @@
 #=
 @name: getGeneDistance.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 25-Nov-2019
+@update: 09-Sep-2020
 @version: 1.0
 @license: GNU General Public License v3.0.
 please type "./getGeneDistance.jl -h" for usage help
