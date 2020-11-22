@@ -2,7 +2,7 @@
 #=
 @name: simulate_operonEvolutionMarkov.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 27-Aug-2020
+@update: 21-Oct-2020
 @version: 1.0
 @license: GNU General Public License v3.0.
 please type "./simulate_operonEvolutionMarkov.jl.jl -h" for usage help
@@ -14,7 +14,9 @@ using ArgParse;
 using StatsBase;
 using Distributions;
 using LinearAlgebra;
+using LightGraphs;
 using ProgressMeter;
+
 # 1.2 Define functions ===================================================#
 """
 parse_commandline()
@@ -224,9 +226,10 @@ function calcMutualInfo(vecX::Array, vecY::Array)
 	py1 = sum(vecY)/lenVec;
 	py0 = 1 - py1;
 	if (px1 == 1 || px0 == 1 || py1 == 1 || py0 == 1)
-		error("Failed to calculate mutual information, one
-		or more elements being compared have no variation.")
-
+		#error("Failed to calculate mutual information, one
+		#or more elements being compared have no variation.")
+		ixy = 0;
+		return(ixy);
 	else
 		xy11 = 0;
 		xy10 = 0;
@@ -268,6 +271,46 @@ function calcMutualInfo(vecX::Array, vecY::Array)
 		end
 		return(ixy);
 	end
+end
+"""
+"""
+function calcMutualInfoMatrix(og_matrix::Array)
+	num_coms = size(og_matrix)[2];
+	num_genomes = size(og_matrix)[1];
+	mi_matrix = zeros(num_coms, num_coms);
+	for i in 1:num_coms
+		for j in 1:num_coms
+			if i > j 
+				vecX = og_matrix[1:num_genomes, i];
+				vecY = og_matrix[1:num_genomes, j];
+				mi_matrix[i,j] = calcMutualInfo(vecX, vecY);
+				mi_matrix[j,i] = calcMutualInfo(vecX, vecY);
+			end
+		end
+	end
+	return(mi_matrix);
+end
+"""
+"""
+function calcMIDistance(genome_dict::Dict, og_ids::Array)
+	mi_table = Dict();
+	num_ogs = length(og_ids);
+	num_genomes = length(genome_dict);
+	parse_mat = parseDict2Matrix(genome_dict, og_ids);
+	for i in 1:num_ogs
+		for j in 1:num_ogs
+			if i > j
+				og_track_id = ["og_$i", "og_$j"];
+				distij = calcAverageDistance(genome_dict, og_track_id);
+				vecX = parse_mat[1:num_genomes, i];
+				vecY = parse_mat[1:num_genomes, j];
+				miij = calcMutualInfo(vecX, vecY);
+				mi_key =  "$(og_track_id[1])-$(og_track_id[2])";
+				mi_table[mi_key] = (mi = miij, dist = distij);
+			end
+		end
+	end
+	return(mi_table);
 end
 """
 Returns only a genome with an added set of OGs
@@ -643,28 +686,52 @@ function simulateMarkovProcess(genome_dict::Dict, og_ids::Array, selection::Bool
 	genome_size_vec = Float64[average_genome_size];
 	if selection
 		all_kd = ones(num_ogs)*1;
-		fit_mat = 1 ./(abs.(rand(Normal(0,0.1), num_ogs, num_ogs)));
-		#fit_mat = reshape(ones(num_ogs^2), (num_ogs, num_ogs)); #DEBUG
+		initial_network = erdos_renyi(num_ogs, 0.05, is_directed = false);
+		initial_network = barabasi_albert(num_ogs, 1, is_directed = false);
+		adjacency_m = adjacency_matrix(initial_network);
+		fit_mat = ones(num_ogs, num_ogs) * 10;
 		[fit_mat[x,x] = 0 for x in 1:num_ogs];
-		[fit_mat[x,y] = fit_mat[y,x] for x in 1:num_ogs for y in 1:num_ogs];
+		for i in 1:num_ogs
+			for j in num_ogs
+				if i>j
+					if adjacency_m[i,j] == 1
+						fit_mat[i,j] = 0;
+						fit_mat[j,i] = 0;
+					end
+				end
+			end
+		end
+		fit_mat = fit_mat + rand(num_ogs, num_ogs);
+		fit_mat[og_track_int[1], :] = zeros(num_ogs);
+		fit_mat[:, og_track_int[1]] = zeros(num_ogs);
+		fit_mat[og_track_int[2], :] = zeros(num_ogs);
+		fit_mat[:, og_track_int[2]] = zeros(num_ogs);
+		#####################################################################################
+		#fit_mat = 1 ./(abs.(rand(Normal(0,0.1), num_ogs, num_ogs)));						#
+		#fit_mat = reshape(ones(num_ogs^2), (num_ogs, num_ogs)); #DEBUG						#
+		#[fit_mat[x,x] = 0 for x in 1:num_ogs];												#
+		#[fit_mat[x,y] = fit_mat[y,x] for x in 1:num_ogs for y in 1:num_ogs];				#
+		#																					#
+		#																					#
+		#fit_mat[og_track_int[1], og_track_int[2]] = 0; #DEBUG								#
+		#fit_mat[og_track_int[2], og_track_int[1]] = 0; #DEGUB								#
+		#fit_mat[og_track_int[1], :] = zeros(num_ogs); #DEBUG								#
+		#fit_mat[:, og_track_int[1]] = zeros(num_ogs); #DEGUB								#
+		#fit_mat[og_track_int[2], :] = zeros(num_ogs); #DEGUB								#
+		#fit_mat[:, og_track_int[2]] = zeros(num_ogs); #DEGUB								#
+		#fitness_value = fit_mat[og_track_int[1], og_track_int[2]];							#
+		#####################################################################################
 		max_fitness_value = maximum(fit_mat);
 		min_fitness_value = minimum(fit_mat);
-		fit_mat[og_track_int[1], og_track_int[2]] = 0; #DEBUG
-		fit_mat[og_track_int[2], og_track_int[1]] = 0; #DEGUB
-		fit_mat[og_track_int[1], :] = zeros(num_ogs); #DEBUG
-		fit_mat[:, og_track_int[1]] = zeros(num_ogs); #DEGUB
-		fit_mat[og_track_int[2], :] = zeros(num_ogs); #DEGUB
-		fit_mat[:, og_track_int[2]] = zeros(num_ogs); #DEGUB
-		fitness_value = fit_mat[og_track_int[1], og_track_int[2]];
+		fitness_value = fit_mat[og_track_int[1], og_track_int[2]];							#
 		@showprogress 1 "Simulating selection process......." for i in 1:num_steps
 			avg_genome_size_i = calcAverageGenomeSize(genome_dict);
-			replacement_size_float = (rand(1)[1] * (min_genome_size/10)) - (min_genome_size/50);
-			replacement_size_int = Int(floor(replacement_size_float));
+			replacement_size_int =  rand(Poisson(1), 1)[1];
 			if replacement_size_int <= 0
 				replacement_size_int = 1;
 			end
 			e = exp(1);
-			lambda = 1.44*150;
+			lambda = 1.5*80;
 			rearrangement_probability = probability_weights[3];
 			gain_probability = round((1-rearrangement_probability) * e^(-avg_genome_size_i/lambda), digits = 5);
 			loss_probability = round(1 - (rearrangement_probability + gain_probability), digits = 5);
@@ -755,6 +822,7 @@ end
 mi, dist = simulateMarkovProcess(genome_dict, og_ids, false, probability_weights, og_track_int, num_steps, burn_in);
 # 2.1.2 Selection #
 mi_sel, dist_sel, fitness_value, max_fitness_value, min_fitness_value, genome_size_vec = simulateMarkovProcess(genome_dict_sel, og_ids, true, probability_weights, og_track_int, num_steps, burn_in);
+mi_table = calcMIDistance(genome_dict, og_ids);
 ###========================== 3.0 Write results =========================###
 # 3.1 Write No Selection ==================================================#
 no_selection_ext = "_noSelection.tsv";
@@ -772,6 +840,14 @@ out_stream = open(out_name, "w");
 write(out_stream, "Step\tMI\tDistance\tGenome_size\n");
 for i in 1:length(mi_sel)
 	write(out_stream, "$i\t$(mi_sel[i])\t$(dist_sel[i])\t$(genome_size_vec[i])\n");
+end
+close(out_stream);
+selection_ext = "_selection_mimat.tsv";
+out_name = "$output$selection_ext";
+out_stream = open(out_name, "w");
+write(out_stream, "MI\tDistance\n");
+for key in collect(keys(mi_table))
+	write(out_stream, "$(mi_table[key].mi)\t$(mi_table[key].dist)\n");
 end
 close(out_stream);
 # 3.3 Write Miscelaneous stats ===========================================#
