@@ -2,7 +2,7 @@
 #=
 @name: simulate_operonEvolutionMarkov.jl
 @author: Juan C. Castro <jccastrog at gatech dot edu>
-@update: 21-Oct-2020
+@update: 15-Dec-2020
 @version: 1.0
 @license: GNU General Public License v3.0.
 please type "./simulate_operonEvolutionMarkov.jl.jl -h" for usage help
@@ -225,52 +225,36 @@ function calcMutualInfo(vecX::Array, vecY::Array)
 	px0 = 1 - px1;
 	py1 = sum(vecY)/lenVec;
 	py0 = 1 - py1;
-	if (px1 == 1 || px0 == 1 || py1 == 1 || py0 == 1)
-		#error("Failed to calculate mutual information, one
-		#or more elements being compared have no variation.")
-		ixy = 0;
-		return(ixy);
-	else
-		xy11 = 0;
-		xy10 = 0;
-		xy00 = 0;
-		xy01 = 0;
-		for i in 1:lenVec
-			if vecX[i] == 1
-				if vecY[i] == 1
-					xy11 += 1;
-				elseif vecY[i] == 0
-					xy10 += 1;
-				end
-			elseif vecX[i] == 0
-				if vecY[i] == 1
-					xy01 += 1;
-				elseif vecY[i] == 0
-					xy00 += 1;
-				end
+	xy11 = 0;
+	xy10 = 0;
+	xy00 = 0;
+	xy01 = 0;
+	for i in 1:lenVec
+		if vecX[i] == 1
+			if vecY[i] == 1
+				xy11 += 1;
+			elseif vecY[i] == 0
+				xy10 += 1;
+			end
+		elseif vecX[i] == 0
+			if vecY[i] == 1
+				xy01 += 1;
+			elseif vecY[i] == 0
+				xy00 += 1;
 			end
 		end
-		pxy11 = xy11/lenVec;
-		pxy10 = xy10/lenVec;
-		pxy00 = xy00/lenVec;
-		pxy01 = xy01/lenVec;
-		t1 = pxy11*log((pxy11)/(px1*py1));
-		t2 = pxy10*log((pxy10)/(px1*py0));
-		t3 = pxy01*log((pxy01)/(px0*py1));
-		t4 = pxy00*log((pxy00)/(px0*py0));
-		if isnan(t1)
-			ixy = t2 + t3 + t4;
-		elseif isnan(t2)
-			ixy = t1 + t3 + t4;
-		elseif isnan(t3)
-			ixy = t1 + t2 + t4;
-		elseif isnan(t4)
-			ixy = t1 + t2 + t3;
-		else
-			ixy = t1 + t2 + t3 + t4;
-		end
-		return(ixy);
 	end
+	pxy11 = xy11/lenVec;
+	pxy10 = xy10/lenVec;
+	pxy00 = xy00/lenVec;
+	pxy01 = xy01/lenVec;
+	t1 = pxy11*log((pxy11)/(px1*py1));
+	t2 = pxy10*log((pxy10)/(px1*py0));
+	t3 = pxy01*log((pxy01)/(px0*py1));
+	t4 = pxy00*log((pxy00)/(px0*py0));
+	T = [t1, t2, t3, t4];
+	ixy = sum(filter(!isnan, T))
+	return(ixy);
 end
 """
 """
@@ -731,7 +715,7 @@ function simulateMarkovProcess(genome_dict::Dict, og_ids::Array, selection::Bool
 				replacement_size_int = 1;
 			end
 			e = exp(1);
-			lambda = 1.5*80;
+			lambda = 1.5*200;
 			rearrangement_probability = probability_weights[3];
 			gain_probability = round((1-rearrangement_probability) * e^(-avg_genome_size_i/lambda), digits = 5);
 			loss_probability = round(1 - (rearrangement_probability + gain_probability), digits = 5);
@@ -822,7 +806,7 @@ end
 mi, dist = simulateMarkovProcess(genome_dict, og_ids, false, probability_weights, og_track_int, num_steps, burn_in);
 # 2.1.2 Selection #
 mi_sel, dist_sel, fitness_value, max_fitness_value, min_fitness_value, genome_size_vec = simulateMarkovProcess(genome_dict_sel, og_ids, true, probability_weights, og_track_int, num_steps, burn_in);
-mi_table = calcMIDistance(genome_dict, og_ids);
+#mi_table = calcMIDistance(genome_dict, og_ids);
 ###========================== 3.0 Write results =========================###
 # 3.1 Write No Selection ==================================================#
 no_selection_ext = "_noSelection.tsv";
@@ -842,13 +826,13 @@ for i in 1:length(mi_sel)
 	write(out_stream, "$i\t$(mi_sel[i])\t$(dist_sel[i])\t$(genome_size_vec[i])\n");
 end
 close(out_stream);
-selection_ext = "_selection_mimat.tsv";
-out_name = "$output$selection_ext";
-out_stream = open(out_name, "w");
-write(out_stream, "MI\tDistance\n");
-for key in collect(keys(mi_table))
-	write(out_stream, "$(mi_table[key].mi)\t$(mi_table[key].dist)\n");
-end
+#selection_ext = "_selection_mimat.tsv";
+#out_name = "$output$selection_ext";
+#out_stream = open(out_name, "w");
+#write(out_stream, "MI\tDistance\n");
+#for key in collect(keys(mi_table))
+	#write(out_stream, "$(mi_table[key].mi)\t$(mi_table[key].dist)\n");
+#end
 close(out_stream);
 # 3.3 Write Miscelaneous stats ===========================================#
 final_mean_genome_size = calcAverageGenomeSize(genome_dict);
